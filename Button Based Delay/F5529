@@ -1,0 +1,56 @@
+#include <msp430.h>
+
+
+volatile unsigned long int cyclePress = 0;                   // number of cycles when button is pressed
+volatile unsigned long int cycleRelease = 0;                // number of cycles when button is let go
+volatile unsigned long int Count = 0;                      // counts the cycles in up mode
+unsigned int x = 0;                                       // used to keep track of button press up/down
+volatile unsigned long int timePress = 0;                // time of button press
+volatile unsigned long int timeRelease = 1000;          // time at button press!
+
+int main(void)
+{
+    WDTCTL = WDTPW + WDTHOLD;                   // Stop watchdog timer
+    P1DIR |= BIT0;                              // red LED as output
+    P1DIR &= ~BIT1;                             // set P1.3 as input
+    P1IE |=  BIT1;                              // set P1.3 interrupt
+    P1IES |= BIT1;                              // set P1.3 high/low edge set
+    P1IFG &= ~BIT1;                             // clear P1.3 interrupt flag
+
+
+    TA0CTL = TASSEL_1 + MC_1 ;                   // enable ACLK, count up
+    TA0CCTL0 = CCIE;                            // TA0CCR0 interrupt enabled
+    TA0CCR0 = 5000;                             // Sets TA0CCR0 interrupt value
+
+    __bis_SR_register(GIE);
+
+
+
+    while(1);
+}
+
+#pragma vector=PORT1_VECTOR                     // Interrupt for button
+__interrupt void Port_1(void)
+{
+    P1IFG &= ~BIT1;                             // P1.3 IFG cleared
+    if(!x)                                      // if only when button press
+    {
+        timePress = TA0R;                       // record timer at button press
+        cyclePress = Count;                    // when button press record cycle
+    }
+    else                                        // else when button off
+    {
+        timeRelease = TA0R;                     // record timer when button off
+        cycleRelease = Count;                   // record cycle number at button release
+        TA0CCR0 = ((timeRelease -timePress + ((cycleRelease - cyclePress)*TA0CCR0)));  //  CCR0 = dButtonPress + (dCycles * (Current CCR0))
+       }
+    P1IES ^= BIT1;                              // Toggle High/low edge
+    x ^= 1;                                     // Toggle x (button off/ button on)
+}
+
+#pragma vector=TIMER0_A0_VECTOR                 // Interrupt when Timer = TA0CCR0
+__interrupt void Timer_A(void)
+{
+    P1OUT ^= BIT0;                              // P1.0  toggle LED
+    Count++;                                    // increment number of timer cycle
+}
