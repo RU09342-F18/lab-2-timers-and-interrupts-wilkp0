@@ -1,0 +1,45 @@
+#include <msp430.h> 
+
+volatile unsigned int Counter1= 0;       //creates a variable and sets the intial value to 0
+volatile unsigned int Counter2 = 0;      //creates a variable and sets the intial value to 0
+ int main(void)
+{
+
+
+    WDTCTL = WDTPW | WDTHOLD;   // stop WDT
+    BCSCTL3 = LFXT1S_2;         //AClk requirement for TI
+
+    P1DIR |= (BIT0 + BIT6);     //P1.0 and P1.6 set to output
+
+
+    CCTL0 = CCIE;               // CCRO interrupt enable
+    TACCR0 = 62500;                 //Amount of time which timer event will happen
+    TACTL = TASSEL_2 + ID_3+ MC_1;    // SMCLK, up mode (count to TACCR0)
+    __enable_interrupt();       //enables  interrupt
+                                //Timer counts 62500x8us=500000us (0.5s)
+
+}
+#pragma vector=TIMER0_A0_VECTOR     //these two lines set up the timer 1 interrupt
+__interrupt void Timer_A (void)
+    {
+
+    if(Counter1 >=8){         //8x0.5= 4sec on/off if statement checks if the timer has counted enough to turn LED on or off
+      P1OUT ^= BIT0;        //toggles the LED on or off
+      Counter1 = 0;       //resets the timer to allow the loop to begin again
+    }
+    else
+        {
+        Counter1++;
+        }
+
+
+    if(Counter2 >=4){       //4x0.5= 2 sec on/off if statement checks if the timer has counted enough to turn LED on or off
+      P1OUT ^= BIT6;            //toggles the LED on or off
+      Counter2 = 0;          //resets the timer to allow the loop to begin again
+    }
+    else{
+        Counter2++;
+    }
+    }
+
+
